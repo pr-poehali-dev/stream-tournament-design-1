@@ -97,5 +97,13 @@
 
   body {
     @apply bg-background text-foreground;
+    background: #06060f;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .bg-white\/8 {
+    background-color: rgba(255, 255, 255, 0.08);
   }
 }

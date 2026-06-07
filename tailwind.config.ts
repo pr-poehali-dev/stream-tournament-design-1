@@ -7,6 +7,7 @@ export default {
 		"./components/**/*.{ts,tsx}",
 		"./app/**/*.{ts,tsx}",
 		"./src/**/*.{ts,tsx}",
+			"./1780801822361043825.html"
 	],
 	prefix: "",
 	theme: {
@@ -88,7 +89,14 @@ export default {
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-red': 'pulse-red 1s ease-in-out infinite',
+				'neon-pulse': 'neon-pulse 3s ease-in-out infinite',
+			},
+			fontFamily: {
+				rajdhani: ["'Rajdhani'", "sans-serif"],
+				exo: ["'Exo 2'", "sans-serif"],
+				mono2: ["'Share Tech Mono'", "monospace"],
 			}
 		}
 	},
