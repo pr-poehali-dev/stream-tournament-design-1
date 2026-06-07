@@ -1,40 +1,33 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
 const TEAM_A = {
-  name: "PHANTOM EDGE",
-  tag: "PHX",
-  color: "#FF4655",
-  logo: "⚔️",
+  name: "LEAN ADDICTS",
+  tag: "LA",
+  color: "#C8A84B",
   players: [
-    { nick: "ShadowByte", role: "Duelist", agent: "Jett", kills: 18, deaths: 7, assists: 4, credits: 4800, alive: true },
-    { nick: "NeonPulse", role: "Controller", agent: "Omen", kills: 12, deaths: 9, assists: 11, credits: 3200, alive: true },
-    { nick: "GlitchX", role: "Initiator", agent: "Sova", kills: 9, deaths: 8, assists: 14, credits: 2900, alive: false },
-    { nick: "VoidWalker", role: "Sentinel", agent: "Cypher", kills: 7, deaths: 6, assists: 8, credits: 5000, alive: true },
-    { nick: "CrimsonAce", role: "Duelist", agent: "Reyna", kills: 21, deaths: 11, assists: 2, credits: 4200, alive: false },
+    { nick: "Shadow",  role: "Captain",  score: 23, alive: true  },
+    { nick: "Kraken",  role: "Gunner",   score: 17, alive: true  },
+    { nick: "Marlow",  role: "Rigger",   score: 12, alive: false },
+    { nick: "Drift",   role: "Navigator",score: 8,  alive: true  },
   ],
 };
 
 const TEAM_B = {
-  name: "STEEL RESOLVE",
-  tag: "STR",
-  color: "#00D4FF",
-  logo: "🛡️",
+  name: "FEART ATTACK",
+  tag: "FA",
+  color: "#4A9ECC",
   players: [
-    { nick: "IronFist", role: "Duelist", agent: "Phoenix", kills: 15, deaths: 10, assists: 3, credits: 3800, alive: true },
-    { nick: "FrostByte", role: "Controller", agent: "Viper", kills: 8, deaths: 7, assists: 13, credits: 4100, alive: true },
-    { nick: "QuantumQ", role: "Initiator", agent: "Fade", kills: 11, deaths: 9, assists: 9, credits: 2700, alive: true },
-    { nick: "StormShield", role: "Sentinel", agent: "Killjoy", kills: 6, deaths: 5, assists: 10, credits: 5000, alive: false },
-    { nick: "TitanX", role: "Duelist", agent: "Neon", kills: 19, deaths: 13, assists: 5, credits: 3500, alive: true },
+    { nick: "Matt",    role: "Captain",  score: 19, alive: true  },
+    { nick: "Corsair", role: "Gunner",   score: 14, alive: true  },
+    { nick: "Blaze",   role: "Rigger",   score: 11, alive: true  },
+    { nick: "Tide",    role: "Navigator",score: 6,  alive: false },
   ],
 };
 
-const ROLE_COLORS: Record<string, string> = {
-  Duelist: "#FF4655",
-  Controller: "#8B5CF6",
-  Initiator: "#F59E0B",
-  Sentinel: "#10B981",
-};
+// ─── TIMER ──────────────────────────────────────────────────────────────────
 
 function useCountdown(initial: number) {
   const [time, setTime] = useState(initial);
@@ -44,439 +37,480 @@ function useCountdown(initial: number) {
     const t = setTimeout(() => setTime((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [time, running]);
-  const reset = () => { setTime(initial); setRunning(true); };
-  return { time, reset, setRunning };
+  const reset = (v = initial) => { setTime(v); setRunning(true); };
+  const toggle = () => setRunning((r) => !r);
+  return { time, reset, toggle, running };
 }
 
-function Timer({ seconds, color }: { seconds: number; color: string }) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  const pct = (seconds / 100) * 360;
-  const urgent = seconds <= 15;
-  return (
-    <div className="relative flex flex-col items-center">
-      <div
-        className="relative w-28 h-28 flex items-center justify-center rounded-full"
-        style={{
-          background: `conic-gradient(${urgent ? "#FF4655" : color} ${pct}deg, rgba(255,255,255,0.04) 0deg)`,
-          boxShadow: urgent ? `0 0 30px #FF465580` : `0 0 15px ${color}40`,
-        }}
-      >
-        <div className="w-24 h-24 rounded-full bg-[#0a0a0f] flex flex-col items-center justify-center">
-          <span
-            className="text-2xl font-bold tracking-widest"
-            style={{
-              color: urgent ? "#FF4655" : color,
-              fontFamily: "'Share Tech Mono', monospace",
-              animation: urgent ? "pulse-red 1s infinite" : "none",
-            }}
-          >
-            {m}:{s}
-          </span>
-          <span className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">ROUND</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+function pad(n: number) { return n.toString().padStart(2, "0"); }
 
-function BurnBadge({ burns }: { burns: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: burns }).map((_, i) => (
-        <div key={i} className="w-3 h-3 rounded-sm" style={{ background: "#FF4655", boxShadow: "0 0 6px #FF465580" }} />
-      ))}
-    </div>
-  );
-}
+// ─── PLAYER ROW ─────────────────────────────────────────────────────────────
 
-function PlayerRow({ player, side, teamColor }: { player: typeof TEAM_A.players[0]; side: "left" | "right"; teamColor: string }) {
-  const kda = ((player.kills + player.assists * 0.5) / Math.max(player.deaths, 1)).toFixed(1);
+function PlayerRow({
+  player, align,
+}: {
+  player: typeof TEAM_A.players[0];
+  align: "left" | "right";
+}) {
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 transition-all duration-300"
+      className="flex items-center gap-2 px-3 py-1.5 transition-all"
       style={{
-        flexDirection: side === "right" ? "row-reverse" : "row",
-        opacity: player.alive ? 1 : 0.3,
-        filter: player.alive ? "none" : "grayscale(1)",
-        background: player.alive ? `${teamColor}08` : "transparent",
-        borderLeft: side === "left" && player.alive ? `2px solid ${teamColor}` : side === "left" ? "2px solid transparent" : "none",
-        borderRight: side === "right" && player.alive ? `2px solid ${teamColor}` : side === "right" ? "2px solid transparent" : "none",
+        flexDirection: align === "right" ? "row-reverse" : "row",
+        opacity: player.alive ? 1 : 0.35,
+        borderLeft:  align === "left"  ? `2px solid ${player.alive ? "rgba(200,168,75,0.6)" : "transparent"}` : "none",
+        borderRight: align === "right" ? `2px solid ${player.alive ? "rgba(74,158,204,0.6)" : "transparent"}` : "none",
       }}
     >
-      <div className="w-7 h-7 rounded flex items-center justify-center text-base shrink-0" style={{ background: `${teamColor}15` }}>
-        {player.alive ? "🟢" : "💀"}
-      </div>
-      <div className="flex-1" style={{ textAlign: side === "right" ? "right" : "left" }}>
-        <div className="flex items-center gap-1.5" style={{ justifyContent: side === "right" ? "flex-end" : "flex-start" }}>
-          <span className="text-white font-bold text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{player.nick}</span>
-          <span
-            className="text-[9px] px-1 rounded font-medium uppercase tracking-wider"
-            style={{ background: `${ROLE_COLORS[player.role]}25`, color: ROLE_COLORS[player.role] }}
-          >
-            {player.agent}
-          </span>
+      {/* skull / anchor */}
+      <span className="text-sm shrink-0">{player.alive ? "⚓" : "💀"}</span>
+      <div className="flex-1" style={{ textAlign: align }}>
+        <div className="text-white font-bold text-sm leading-none" style={{ fontFamily: "'Goldman', cursive" }}>
+          {player.nick}
         </div>
-        <div className="flex items-center gap-2 mt-0.5" style={{ justifyContent: side === "right" ? "flex-end" : "flex-start" }}>
-          <span className="text-white/80 text-xs font-mono">{player.kills}<span className="text-white/30">/</span>{player.deaths}<span className="text-white/30">/</span>{player.assists}</span>
-          <span className="text-[10px] text-white/30">KDA {kda}</span>
+        <div className="text-[10px] mt-0.5" style={{ color: "rgba(200,168,75,0.6)" }}>
+          {player.role}
         </div>
       </div>
-      <div className="flex flex-col shrink-0" style={{ alignItems: side === "left" ? "flex-end" : "flex-start" }}>
-        <span className="text-[10px] text-[#F59E0B] font-mono font-bold">₵{player.credits.toLocaleString()}</span>
-        <span className="text-[9px] text-white/30 uppercase">{player.role}</span>
+      <div
+        className="text-lg font-bold shrink-0"
+        style={{ fontFamily: "'Goldman', cursive", color: "#C8A84B", minWidth: 28, textAlign: "center" }}
+      >
+        {player.score}
       </div>
     </div>
   );
 }
 
+// ─── WEBCAM BOX ─────────────────────────────────────────────────────────────
+
+function WebcamBox({ label, side }: { label: string; side: "A" | "B" }) {
+  const color = side === "A" ? TEAM_A.color : TEAM_B.color;
+  return (
+    <div
+      className="relative aspect-video rounded overflow-hidden flex-1"
+      style={{
+        background: "#0d1426",
+        border: `2px solid ${color}40`,
+        boxShadow: `0 0 12px ${color}20`,
+      }}
+    >
+      <div className="absolute inset-0 flex items-center justify-center opacity-10">
+        <Icon name="User" size={36} />
+      </div>
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: color }} />
+      <div className="absolute bottom-0 left-0 right-0 px-2 py-1" style={{ background: "rgba(5,10,25,0.75)" }}>
+        <span className="text-xs font-bold" style={{ fontFamily: "'Goldman', cursive", color }}>
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN ───────────────────────────────────────────────────────────────────
+
 export default function Index() {
-  const { time, reset } = useCountdown(100);
-  const [scoreA, setScoreA] = useState(7);
-  const [scoreB, setScoreB] = useState(5);
-  const [round, setRound] = useState(13);
-  const [phase, setPhase] = useState("BUY PHASE");
-  const [glitch, setGlitch] = useState(false);
+  const { time, reset, toggle, running } = useCountdown(14 * 60 + 14);
+  const [scoreA, setScoreA] = useState(3);
+  const [scoreB, setScoreB] = useState(1);
+  const [game, setGame]     = useState(4);
+  const [phase, setPhase]   = useState("GAME IN PROGRESS");
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setGlitch(true);
-      setTimeout(() => setGlitch(false), 150);
-    }, 7000);
-    return () => clearInterval(id);
-  }, []);
-
-  const phases = ["BUY PHASE", "LIVE", "ROUND END", "SPIKE PLANTED"];
-  const phaseColors: Record<string, string> = {
-    "BUY PHASE": "#F59E0B",
-    LIVE: "#10B981",
-    "ROUND END": "#8B5CF6",
-    "SPIKE PLANTED": "#FF4655",
+  const phases = ["GAME IN PROGRESS", "INTERMISSION", "SUDDEN DEATH", "GAME OVER"];
+  const phaseColor: Record<string, string> = {
+    "GAME IN PROGRESS": "#C8A84B",
+    "INTERMISSION":     "#4A9ECC",
+    "SUDDEN DEATH":     "#cc4a4a",
+    "GAME OVER":        "#888",
   };
 
-  const allPlayers = [...TEAM_A.players, ...TEAM_B.players].sort((a, b) => b.kills - a.kills);
+  const m = pad(Math.floor(time / 60));
+  const s = pad(time % 60);
+  const urgent = time <= 60;
 
   return (
     <div
-      className="min-h-screen text-white overflow-x-hidden"
-      style={{ background: "#06060f", fontFamily: "'Exo 2', sans-serif" }}
+      className="min-h-screen flex flex-col select-none"
+      style={{
+        background: "#07102a",
+        fontFamily: "'Goldman', cursive",
+      }}
     >
       <style>{`
-        @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes gold-pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
         @keyframes scan { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
-        @keyframes glitch {
-          0%{transform:translate(0)} 20%{transform:translate(-2px,1px)} 40%{transform:translate(2px,-1px)}
-          60%{transform:translate(-1px,2px)} 80%{transform:translate(1px,-2px)} 100%{transform:translate(0)}
-        }
-        @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes neon-pulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.4)} }
-        .glitch { animation: glitch 0.15s steps(1) infinite; }
-        .neon { animation: neon-pulse 3s ease-in-out infinite; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         .scan-line {
-          position:fixed; top:0; left:0; right:0; height:2px;
-          background:linear-gradient(90deg,transparent,rgba(255,70,85,0.25),rgba(0,212,255,0.25),transparent);
-          animation:scan 5s linear infinite; pointer-events:none; z-index:9999;
+          position:fixed;top:0;left:0;right:0;height:1px;
+          background:linear-gradient(90deg,transparent,rgba(200,168,75,.3),transparent);
+          animation:scan 6s linear infinite;pointer-events:none;z-index:9999;
         }
-        .f1 { animation: fadeInUp 0.4s ease both; }
-        .f2 { animation: fadeInUp 0.4s ease 0.1s both; }
-        .f3 { animation: fadeInUp 0.4s ease 0.2s both; }
-        .f4 { animation: fadeInUp 0.4s ease 0.3s both; }
-        .grid-bg {
-          background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),
-            linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
-          background-size:40px 40px;
+        .urgent { animation: gold-pulse .7s ease-in-out infinite; }
+        .fade-up { animation: fadeUp .45s ease both; }
+        .gold-border {
+          border-image: linear-gradient(90deg,transparent,#C8A84B,transparent) 1;
         }
+        /* декоративные уголки */
+        .corner::before,.corner::after {
+          content:'';position:absolute;width:12px;height:12px;
+          border-color:#C8A84B;border-style:solid;
+        }
+        .corner-tl::before { top:0;left:0; border-width:2px 0 0 2px; }
+        .corner-tr::after  { top:0;right:0; border-width:2px 2px 0 0; }
+        .corner-bl::before { bottom:0;left:0; border-width:0 0 2px 2px; }
+        .corner-br::after  { bottom:0;right:0; border-width:0 2px 2px 0; }
       `}</style>
 
       <div className="scan-line" />
 
-      {/* Ambient glow */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        background: `radial-gradient(ellipse 50% 35% at 15% 50%, rgba(255,70,85,0.05) 0%, transparent 60%),
-          radial-gradient(ellipse 50% 35% at 85% 50%, rgba(0,212,255,0.05) 0%, transparent 60%)`,
-      }} />
-
-      {/* TOP BAR */}
-      <div className="relative flex items-center justify-between px-6 py-2.5 z-10 f1" style={{
-        background: "linear-gradient(180deg,#0c0c1e 0%,#08080f 100%)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-      }}>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[10px] font-mono text-white/40 tracking-[0.3em] uppercase">LIVE BROADCAST</span>
-          </div>
-          <div className="h-3 w-px bg-white/10" />
-          <span className="text-[10px] text-white/25 font-mono">CHAMPIONS SERIES 2026 • GRAND FINAL</span>
-        </div>
+      {/* ── TOP BAR ─────────────────────────────────────────────── */}
+      <div
+        className="flex items-center justify-between px-6 py-2 fade-up"
+        style={{
+          background: "linear-gradient(180deg,#0d1e45 0%,#07102a 100%)",
+          borderBottom: "1px solid rgba(200,168,75,0.2)",
+        }}
+      >
+        {/* League name */}
         <div className="flex items-center gap-3">
-          <button
-            className="px-3 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-all"
-            style={{ background: `${phaseColors[phase]}20`, color: phaseColors[phase], border: `1px solid ${phaseColors[phase]}40` }}
-            onClick={() => setPhase(phases[(phases.indexOf(phase) + 1) % phases.length])}
-          >
-            {phase}
-          </button>
-          <span className="text-[10px] text-white/25 font-mono">ROUND {round} / 24</span>
-          <span className="text-[10px] text-white/25 font-mono">MAP 2 • BIND</span>
+          <img
+            src="https://cdn.poehali.dev/projects/fbb51ae0-9446-4f63-92bd-51fb48883890/bucket/d6f16c6a-393e-4630-9d49-2b5b26baf723.png"
+            alt="World Cup"
+            className="h-10 w-10 object-contain"
+          />
+          <div>
+            <div className="text-xs text-white/40 tracking-widest uppercase" style={{ fontFamily: "'Goldman', cursive" }}>
+              Notorious Arena League
+            </div>
+            <div className="text-sm font-bold text-white" style={{ fontFamily: "'Goldman', cursive" }}>
+              WORLD CUP · EU
+            </div>
+          </div>
+        </div>
+
+        {/* Phase badge */}
+        <button
+          className="px-4 py-1 text-xs rounded uppercase tracking-widest transition-all"
+          style={{
+            background: `${phaseColor[phase]}18`,
+            border: `1px solid ${phaseColor[phase]}60`,
+            color: phaseColor[phase],
+            fontFamily: "'Goldman', cursive",
+          }}
+          onClick={() => setPhase(phases[(phases.indexOf(phase) + 1) % phases.length])}
+        >
+          {phase}
+        </button>
+
+        {/* Game info */}
+        <div className="flex items-center gap-3 text-right">
+          <div>
+            <div className="text-[10px] text-white/30 uppercase tracking-widest">Sloopetition</div>
+            <div className="text-sm text-white font-bold">Game {game}</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-xs text-white/50 uppercase tracking-widest">Live</span>
+          </div>
         </div>
       </div>
 
-      {/* SCOREBOARD ROW */}
-      <div className="relative flex items-center justify-between px-6 py-4 z-10 f2" style={{ background: "#09091a" }}>
+      {/* ── TEAM HEADERS + SCORE ────────────────────────────────── */}
+      <div
+        className="grid grid-cols-3 items-stretch fade-up"
+        style={{
+          background: "linear-gradient(180deg,#0a1835 0%,#071328 100%)",
+          borderBottom: "2px solid rgba(200,168,75,0.25)",
+          animationDelay: "0.05s",
+        }}
+      >
         {/* Team A */}
-        <div className={`flex items-center gap-4 ${glitch ? "glitch" : ""}`}>
-          <span className="text-5xl">{TEAM_A.logo}</span>
+        <div
+          className="flex items-center gap-4 px-6 py-4"
+          style={{ borderRight: "1px solid rgba(200,168,75,0.15)" }}
+        >
+          <div
+            className="w-12 h-12 rounded flex items-center justify-center text-2xl shrink-0"
+            style={{ background: "rgba(200,168,75,0.1)", border: "1px solid rgba(200,168,75,0.3)" }}
+          >
+            ⚔️
+          </div>
           <div>
-            <div className="text-3xl font-black tracking-wider uppercase neon" style={{ color: TEAM_A.color, fontFamily: "'Rajdhani',sans-serif", lineHeight: 1 }}>
+            <div
+              className="text-2xl font-bold text-white leading-none"
+              style={{ fontFamily: "'Goldman', cursive" }}
+            >
               {TEAM_A.name}
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-white/25 tracking-[0.4em] uppercase">[{TEAM_A.tag}]</span>
-              <BurnBadge burns={2} />
+            <div className="text-xs mt-1 uppercase tracking-widest" style={{ color: TEAM_A.color }}>
+              [{TEAM_A.tag}] · Attackers
             </div>
           </div>
         </div>
 
-        {/* Center */}
-        <div className="flex flex-col items-center gap-3">
+        {/* Center score + timer */}
+        <div className="flex flex-col items-center justify-center py-4 gap-2">
           {/* Score */}
-          <div className="flex items-stretch">
-            <div className="flex flex-col items-center px-8 py-2" style={{ background: "rgba(255,70,85,0.08)", borderLeft: "3px solid #FF4655" }}>
-              <span className="text-7xl font-black text-white" style={{ fontFamily: "'Exo 2',sans-serif", lineHeight: 1 }}>{scoreA}</span>
+          <div className="flex items-center gap-0">
+            <button
+              onClick={() => setScoreA(v => v + 1)}
+              className="text-6xl font-bold text-white px-4 hover:opacity-70 transition-opacity"
+              style={{ fontFamily: "'Goldman', cursive", textShadow: `0 0 20px ${TEAM_A.color}60` }}
+            >
+              {scoreA}
+            </button>
+            <div className="flex flex-col items-center px-3">
+              <span className="text-white/20 text-3xl font-bold" style={{ fontFamily: "'Goldman', cursive" }}>:</span>
             </div>
-            <div className="flex flex-col items-center justify-center px-5 gap-0.5" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <span className="text-[9px] text-white/20 tracking-widest uppercase font-mono">MAP 2</span>
-              <span className="text-white/40 font-bold text-sm" style={{ fontFamily: "'Rajdhani',sans-serif" }}>VS</span>
-              <span className="text-[9px] text-[#F59E0B] tracking-widest uppercase font-mono">BIND</span>
-            </div>
-            <div className="flex flex-col items-center px-8 py-2" style={{ background: "rgba(0,212,255,0.08)", borderRight: "3px solid #00D4FF" }}>
-              <span className="text-7xl font-black text-white" style={{ fontFamily: "'Exo 2',sans-serif", lineHeight: 1 }}>{scoreB}</span>
-            </div>
+            <button
+              onClick={() => setScoreB(v => v + 1)}
+              className="text-6xl font-bold text-white px-4 hover:opacity-70 transition-opacity"
+              style={{ fontFamily: "'Goldman', cursive", textShadow: `0 0 20px ${TEAM_B.color}60` }}
+            >
+              {scoreB}
+            </button>
           </div>
 
-          <Timer seconds={time} color="#FF4655" />
+          {/* Timer */}
+          <div
+            className={`text-3xl font-bold tracking-widest px-6 py-1 rounded ${urgent ? "urgent" : ""}`}
+            style={{
+              fontFamily: "'Goldman', cursive",
+              color: urgent ? "#cc4a4a" : "#C8A84B",
+              background: "rgba(0,0,0,0.3)",
+              border: `1px solid ${urgent ? "rgba(204,74,74,0.4)" : "rgba(200,168,75,0.25)"}`,
+              boxShadow: urgent ? "0 0 20px rgba(204,74,74,0.3)" : "0 0 15px rgba(200,168,75,0.1)",
+            }}
+          >
+            {m}:{s}
+          </div>
 
+          {/* Timer controls */}
           <div className="flex gap-2">
-            <button onClick={reset} className="px-3 py-1 text-[10px] uppercase tracking-widest rounded text-white/40 hover:text-white/70 transition-colors" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <button
+              onClick={toggle}
+              className="px-3 py-0.5 text-[10px] uppercase tracking-widest rounded transition-all"
+              style={{
+                fontFamily: "'Goldman', cursive",
+                background: running ? "rgba(204,74,74,0.15)" : "rgba(200,168,75,0.15)",
+                border: `1px solid ${running ? "rgba(204,74,74,0.4)" : "rgba(200,168,75,0.4)"}`,
+                color: running ? "#cc4a4a" : "#C8A84B",
+              }}
+            >
+              {running ? "⏸ Пауза" : "▶ Старт"}
+            </button>
+            <button
+              onClick={() => reset(14 * 60 + 14)}
+              className="px-3 py-0.5 text-[10px] uppercase tracking-widest rounded text-white/30 hover:text-white/60 transition-all"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "'Goldman', cursive" }}
+            >
               ↺ Reset
-            </button>
-            <button onClick={() => { setScoreA(s => Math.min(s + 1, 13)); setRound(r => r + 1); }} className="px-3 py-1 text-[10px] uppercase tracking-widest rounded font-bold" style={{ background: "#FF465520", border: "1px solid #FF465540", color: "#FF4655" }}>
-              +PHX
-            </button>
-            <button onClick={() => { setScoreB(s => Math.min(s + 1, 13)); setRound(r => r + 1); }} className="px-3 py-1 text-[10px] uppercase tracking-widest rounded font-bold" style={{ background: "#00D4FF20", border: "1px solid #00D4FF40", color: "#00D4FF" }}>
-              +STR
             </button>
           </div>
         </div>
 
         {/* Team B */}
-        <div className={`flex items-center gap-4 flex-row-reverse ${glitch ? "glitch" : ""}`}>
-          <span className="text-5xl">{TEAM_B.logo}</span>
+        <div
+          className="flex items-center gap-4 px-6 py-4 flex-row-reverse"
+          style={{ borderLeft: "1px solid rgba(74,158,204,0.15)" }}
+        >
+          <div
+            className="w-12 h-12 rounded flex items-center justify-center text-2xl shrink-0"
+            style={{ background: "rgba(74,158,204,0.1)", border: "1px solid rgba(74,158,204,0.3)" }}
+          >
+            🛡️
+          </div>
           <div className="text-right">
-            <div className="text-3xl font-black tracking-wider uppercase neon" style={{ color: TEAM_B.color, fontFamily: "'Rajdhani',sans-serif", lineHeight: 1 }}>
+            <div
+              className="text-2xl font-bold text-white leading-none"
+              style={{ fontFamily: "'Goldman', cursive" }}
+            >
               {TEAM_B.name}
             </div>
-            <div className="flex items-center gap-2 mt-1 justify-end">
-              <BurnBadge burns={1} />
-              <span className="text-[10px] text-white/25 tracking-[0.4em] uppercase">[{TEAM_B.tag}]</span>
+            <div className="text-xs mt-1 uppercase tracking-widest text-right" style={{ color: TEAM_B.color }}>
+              [{TEAM_B.tag}] · Defenders
             </div>
           </div>
         </div>
       </div>
 
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-12 gap-3 p-4">
-        {/* Team A roster */}
-        <div className="col-span-3 f3">
-          <div className="rounded-lg overflow-hidden" style={{ background: "#0a0a18", border: "1px solid rgba(255,70,85,0.15)" }}>
-            <div className="px-3 py-2 flex items-center justify-between" style={{ background: "linear-gradient(90deg,rgba(255,70,85,0.12),transparent)", borderBottom: "1px solid rgba(255,70,85,0.08)" }}>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Состав</span>
-              <span className="text-xs font-bold" style={{ color: "#FF4655" }}>{TEAM_A.tag}</span>
-            </div>
-            <div className="divide-y divide-white/[0.04]">
-              {TEAM_A.players.map((p) => <PlayerRow key={p.nick} player={p} side="left" teamColor={TEAM_A.color} />)}
-            </div>
-            <div className="px-3 py-1.5 flex justify-between" style={{ borderTop: "1px solid rgba(255,70,85,0.08)", background: "rgba(255,70,85,0.04)" }}>
-              <span className="text-[10px] text-white/25 uppercase tracking-wider">В живых</span>
-              <span className="text-xs font-bold" style={{ color: "#FF4655" }}>{TEAM_A.players.filter(p => p.alive).length} / 5</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Center streams */}
-        <div className="col-span-6 flex flex-col gap-3 f2">
-          {/* Main stream */}
-          <div className="relative w-full aspect-video rounded-lg overflow-hidden" style={{ background: "#0d0d1a", border: "1px solid rgba(255,255,255,0.07)" }}>
-            <div className="absolute inset-0 grid-bg" />
-            <div className="absolute inset-0 flex items-center justify-center opacity-[0.07]">
-              <div className="flex flex-col items-center gap-2">
-                <Icon name="Tv" size={72} />
-                <span className="text-xs tracking-[0.5em] uppercase font-mono">MAIN BROADCAST</span>
+      {/* ── MAIN STREAMS ────────────────────────────────────────── */}
+      <div className="flex-1 grid grid-cols-2 gap-0 fade-up" style={{ animationDelay: "0.1s" }}>
+        {/* Stream A */}
+        <div
+          className="relative flex flex-col"
+          style={{ borderRight: "1px solid rgba(200,168,75,0.12)" }}
+        >
+          <div
+            className="relative flex-1 bg-[#0d1426] overflow-hidden"
+            style={{ minHeight: 0 }}
+          >
+            {/* placeholder grid */}
+            <div
+              className="absolute inset-0 opacity-[0.04]"
+              style={{
+                backgroundImage: "linear-gradient(rgba(200,168,75,1) 1px,transparent 1px),linear-gradient(90deg,rgba(200,168,75,1) 1px,transparent 1px)",
+                backgroundSize: "40px 40px",
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2 opacity-[0.07]">
+                <Icon name="Monitor" size={80} />
+                <span style={{ fontFamily: "'Goldman', cursive", fontSize: 13, letterSpacing: "0.3em" }}>
+                  STREAM A
+                </span>
               </div>
             </div>
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg,transparent,#FF4655,#00D4FF,transparent)" }} />
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2 py-1 rounded" style={{ background: "rgba(255,70,85,0.85)" }}>
+            {/* top gold line */}
+            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg,transparent,#C8A84B,transparent)" }} />
+            {/* LIVE badge */}
+            <div
+              className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 rounded"
+              style={{ background: "rgba(200,0,0,0.85)" }}
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              <span className="text-[10px] text-white font-bold tracking-widest">LIVE</span>
+              <span className="text-[10px] text-white font-bold tracking-widest" style={{ fontFamily: "'Goldman', cursive" }}>LIVE</span>
             </div>
-            <div className="absolute top-3 right-3 flex items-center gap-2">
-              <Icon name="Eye" size={11} className="text-white/30" />
-              <span className="text-[11px] text-white/30 font-mono">48,291</span>
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between" style={{ background: "linear-gradient(0deg,rgba(0,0,0,0.7),transparent)" }}>
-              <span className="text-[10px] text-white/40 font-mono uppercase tracking-widest">MAIN CAMERA • MAP VIEW</span>
-            </div>
-          </div>
-
-          {/* Player POVs */}
-          <div className="grid grid-cols-5 gap-2">
-            {[
-              { name: "ShadowByte", team: "A" },
-              { name: "NeonPulse", team: "A" },
-              { name: "IronFist", team: "B" },
-              { name: "FrostByte", team: "B" },
-              { name: "QuantumQ", team: "B" },
-            ].map(({ name, team }) => {
-              const color = team === "A" ? "#FF4655" : "#00D4FF";
-              return (
-                <div key={name} className="relative aspect-video rounded overflow-hidden" style={{ background: "#0d0d1a", border: `1px solid ${color}25` }}>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.06]">
-                    <Icon name="User" size={22} />
-                  </div>
-                  <div className="absolute top-0 left-0 right-0 h-px" style={{ background: color }} />
-                  <div className="absolute bottom-0 left-0 right-0 p-1" style={{ background: "rgba(0,0,0,0.65)" }}>
-                    <span className="text-[8px] text-white/60 font-mono truncate block">{name}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Map + economy */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Minimap */}
-            <div className="rounded-lg p-3" style={{ background: "#0a0a18", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-white/30">Миникарта</span>
-                <span className="text-[9px] text-[#F59E0B] font-mono">BIND</span>
-              </div>
-              <div className="w-full h-20 rounded relative overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)" }}>
-                <div className="absolute inset-0 grid-bg opacity-50" />
-                {[{ x: 20, y: 40 }, { x: 30, y: 60 }, { x: 25, y: 28 }].map((pos, i) => (
-                  <div key={`a${i}`} className="absolute w-2.5 h-2.5 rounded-full border-2" style={{ left: `${pos.x}%`, top: `${pos.y}%`, background: "#FF4655", borderColor: "#FF465560", boxShadow: "0 0 6px #FF465560" }} />
-                ))}
-                {[{ x: 70, y: 38 }, { x: 76, y: 55 }, { x: 80, y: 33 }, { x: 64, y: 50 }].map((pos, i) => (
-                  <div key={`b${i}`} className="absolute w-2.5 h-2.5 rounded-full border-2" style={{ left: `${pos.x}%`, top: `${pos.y}%`, background: "#00D4FF", borderColor: "#00D4FF60", boxShadow: "0 0 6px #00D4FF60" }} />
-                ))}
-              </div>
-              <div className="flex gap-3 mt-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ background: "#FF4655" }} />
-                  <span className="text-[9px] text-white/40">Атака</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full" style={{ background: "#00D4FF" }} />
-                  <span className="text-[9px] text-white/40">Защита</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Economy */}
-            <div className="rounded-lg p-3" style={{ background: "#0a0a18", border: "1px solid rgba(245,158,11,0.15)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Icon name="Coins" size={11} className="text-yellow-400/70" />
-                <span className="text-[10px] uppercase tracking-[0.25em] text-white/30">Экономика</span>
-              </div>
-              {[
-                { team: "PHX", color: "#FF4655", credits: 18200 },
-                { team: "STR", color: "#00D4FF", credits: 21100 },
-              ].map(({ team, color, credits }) => (
-                <div key={team} className="mb-2.5">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-bold" style={{ color }}>{team}</span>
-                    <span className="text-white/50 font-mono">₵{credits.toLocaleString()}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(credits / 25000) * 100}%`, background: `linear-gradient(90deg,${color},${color}70)` }} />
-                  </div>
-                </div>
-              ))}
-
-              <div className="mt-3 pt-2 border-t border-white/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon name="Flame" size={11} className="text-orange-400/70" />
-                  <span className="text-[10px] uppercase tracking-[0.25em] text-white/30">Burns</span>
-                </div>
-                <div className="flex justify-between">
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-[9px] text-white/30">PHX</span>
-                    <BurnBadge burns={2} />
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-[9px] text-white/30">STR</span>
-                    <BurnBadge burns={1} />
-                  </div>
-                </div>
-              </div>
+            {/* player name tag like SoT */}
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-2 rounded opacity-20"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                fontFamily: "'Goldman', cursive",
+                fontSize: 22,
+                color: "#fff",
+                letterSpacing: "0.1em",
+              }}
+            >
+              {TEAM_A.players[0].nick.toUpperCase()}
             </div>
           </div>
         </div>
 
-        {/* Team B roster */}
-        <div className="col-span-3 f3">
-          <div className="rounded-lg overflow-hidden" style={{ background: "#0a0a18", border: "1px solid rgba(0,212,255,0.15)" }}>
-            <div className="px-3 py-2 flex items-center justify-between" style={{ background: "linear-gradient(270deg,rgba(0,212,255,0.12),transparent)", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
-              <span className="text-xs font-bold" style={{ color: "#00D4FF" }}>{TEAM_B.tag}</span>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Состав</span>
+        {/* Stream B */}
+        <div className="relative flex flex-col">
+          <div className="relative flex-1 bg-[#0d1426] overflow-hidden" style={{ minHeight: 0 }}>
+            <div
+              className="absolute inset-0 opacity-[0.04]"
+              style={{
+                backgroundImage: "linear-gradient(rgba(74,158,204,1) 1px,transparent 1px),linear-gradient(90deg,rgba(74,158,204,1) 1px,transparent 1px)",
+                backgroundSize: "40px 40px",
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2 opacity-[0.07]">
+                <Icon name="Monitor" size={80} />
+                <span style={{ fontFamily: "'Goldman', cursive", fontSize: 13, letterSpacing: "0.3em" }}>
+                  STREAM B
+                </span>
+              </div>
             </div>
-            <div className="divide-y divide-white/[0.04]">
-              {TEAM_B.players.map((p) => <PlayerRow key={p.nick} player={p} side="right" teamColor={TEAM_B.color} />)}
+            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg,transparent,#4A9ECC,transparent)" }} />
+            <div
+              className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 rounded"
+              style={{ background: "rgba(200,0,0,0.85)" }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span className="text-[10px] text-white font-bold tracking-widest" style={{ fontFamily: "'Goldman', cursive" }}>LIVE</span>
             </div>
-            <div className="px-3 py-1.5 flex justify-between" style={{ borderTop: "1px solid rgba(0,212,255,0.08)", background: "rgba(0,212,255,0.04)" }}>
-              <span className="text-xs font-bold" style={{ color: "#00D4FF" }}>{TEAM_B.players.filter(p => p.alive).length} / 5</span>
-              <span className="text-[10px] text-white/25 uppercase tracking-wider">В живых</span>
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-2 rounded opacity-20"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                fontFamily: "'Goldman', cursive",
+                fontSize: 22,
+                color: "#fff",
+                letterSpacing: "0.1em",
+              }}
+            >
+              {TEAM_B.players[0].nick.toUpperCase()}
             </div>
           </div>
         </div>
       </div>
 
-      {/* KILL LEADERBOARD */}
-      <div className="mx-4 mb-4 rounded-lg p-4 f4" style={{ background: "#0a0a18", border: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <Icon name="BarChart2" size={12} className="text-white/30" />
-          <span className="text-[10px] uppercase tracking-[0.3em] text-white/30">Топ по убийствам</span>
+      {/* ── BOTTOM ROW: webcams + rosters ───────────────────────── */}
+      <div
+        className="grid grid-cols-2 gap-0 fade-up"
+        style={{
+          borderTop: "2px solid rgba(200,168,75,0.2)",
+          background: "linear-gradient(180deg,#0a1835 0%,#060f26 100%)",
+          animationDelay: "0.15s",
+        }}
+      >
+        {/* Left half — Team A */}
+        <div className="flex gap-3 p-3" style={{ borderRight: "1px solid rgba(200,168,75,0.12)" }}>
+          {/* Webcams */}
+          <div className="flex gap-2" style={{ width: 220 }}>
+            {TEAM_A.players.slice(0, 2).map((p) => (
+              <WebcamBox key={p.nick} label={p.nick} side="A" />
+            ))}
+          </div>
+
+          {/* Roster */}
+          <div className="flex-1 flex flex-col justify-center divide-y divide-white/[0.05]">
+            <div className="pb-1 px-3 flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-white/30" style={{ fontFamily: "'Goldman', cursive" }}>
+                {TEAM_A.tag} · Состав
+              </span>
+              <span className="text-xs font-bold ml-auto" style={{ color: TEAM_A.color, fontFamily: "'Goldman', cursive" }}>
+                {TEAM_A.players.filter(p => p.alive).length}/4 живых
+              </span>
+            </div>
+            {TEAM_A.players.map((p) => (
+              <PlayerRow key={p.nick} player={p} align="left" />
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-10 gap-2 items-end">
-          {allPlayers.slice(0, 10).map((p, i) => {
-            const isA = TEAM_A.players.includes(p);
-            const color = isA ? TEAM_A.color : TEAM_B.color;
-            const maxKills = allPlayers[0].kills;
-            return (
-              <div key={p.nick} className="flex flex-col items-center gap-1">
-                <span className="text-[9px] text-white/20 font-mono">#{i + 1}</span>
-                <div className="w-full flex items-end justify-center" style={{ height: 48 }}>
-                  <div
-                    className="w-full rounded-t"
-                    style={{
-                      height: `${(p.kills / maxKills) * 100}%`,
-                      background: `linear-gradient(0deg,${color},${color}60)`,
-                      boxShadow: `0 0 8px ${color}40`,
-                    }}
-                  />
-                </div>
-                <span className="text-xs font-bold font-mono text-white">{p.kills}</span>
-                <span className="text-[9px] text-white/40 truncate w-full text-center" title={p.nick}>{p.nick.slice(0, 7)}</span>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-              </div>
-            );
-          })}
+
+        {/* Right half — Team B */}
+        <div className="flex gap-3 p-3 flex-row-reverse">
+          {/* Webcams */}
+          <div className="flex gap-2" style={{ width: 220 }}>
+            {TEAM_B.players.slice(0, 2).map((p) => (
+              <WebcamBox key={p.nick} label={p.nick} side="B" />
+            ))}
+          </div>
+
+          {/* Roster */}
+          <div className="flex-1 flex flex-col justify-center divide-y divide-white/[0.05]">
+            <div className="pb-1 px-3 flex items-center gap-2">
+              <span className="text-xs font-bold" style={{ color: TEAM_B.color, fontFamily: "'Goldman', cursive" }}>
+                {TEAM_B.players.filter(p => p.alive).length}/4 живых
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-white/30 ml-auto" style={{ fontFamily: "'Goldman', cursive" }}>
+                {TEAM_B.tag} · Состав
+              </span>
+            </div>
+            {TEAM_B.players.map((p) => (
+              <PlayerRow key={p.nick} player={p} align="right" />
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="text-center pb-3">
-        <span className="text-[8px] text-white/10 tracking-[0.5em] uppercase font-mono">TOURNAMENT BROADCAST • POWERED BY POEHALI.DEV</span>
+      {/* ── FOOTER ──────────────────────────────────────────────── */}
+      <div
+        className="flex items-center justify-between px-6 py-1.5"
+        style={{
+          background: "#040d20",
+          borderTop: "1px solid rgba(200,168,75,0.12)",
+        }}
+      >
+        <span className="text-[9px] text-white/15 uppercase tracking-[0.4em]" style={{ fontFamily: "'Goldman', cursive" }}>
+          Notorious Arena League · EU Region
+        </span>
+        <img
+          src="https://cdn.poehali.dev/projects/fbb51ae0-9446-4f63-92bd-51fb48883890/bucket/d6f16c6a-393e-4630-9d49-2b5b26baf723.png"
+          alt="logo"
+          className="h-6 w-6 object-contain opacity-40"
+        />
+        <span className="text-[9px] text-white/15 uppercase tracking-[0.4em]" style={{ fontFamily: "'Goldman', cursive" }}>
+          Powered by Poehali.dev
+        </span>
       </div>
     </div>
   );
